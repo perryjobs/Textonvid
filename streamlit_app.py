@@ -17,9 +17,15 @@ def generate_typewriter_clips(text, duration, size=(640, 480), font_size=60, col
     except:
         font = ImageFont.load_default()
 
-    max_chars_per_line = width // (font_size // 2)
+    # Calculate wrap width with margins
+    usable_width = width - 20  # Add small horizontal padding
+    avg_char_width = font_size // 2
+    max_chars_per_line = usable_width // avg_char_width
+
+    # Wrap text
     wrapped_lines = textwrap.wrap(text, width=max_chars_per_line)
     full_text = "\n".join(wrapped_lines)
+
 
     for i in range(1, len(full_text) + 1):
         img = Image.new('RGBA', size, (0, 0, 0, 0))
