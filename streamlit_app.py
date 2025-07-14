@@ -52,17 +52,25 @@ text_input = st.text_input("Enter text for animation")
 duration = st.slider("Text animation duration (seconds)", 1, 10, 5)
 
 if uploaded_file and text_input:
+    # Write uploaded file to disk safely
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_input:
         temp_input.write(uploaded_file.read())
+        temp_input.flush()
         input_path = temp_input.name
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_output:
-        output_path = temp_output.name
+    # Check file size to ensure it's valid
+    if os.path.getsize(input_path) == 0:
+        st.error("❌ Uploaded video file is empty or corrupted.")
+    else:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_output:
+            output_path = temp_output.name
 
-    with st.spinner("Generating video..."):
-        overlay_text_on_video(input_path, output_path, text_input, duration)
-        st.success("✅ Video ready!")
-
-    st.video(output_path)
-    with open(output_path, "rb") as f:
-        st.download_button("⬇️ Download video", f, file_name="output_video.mp4")
+        with st.spinner("Generating video..."):
+            try:
+                overlay_text_on_video(input_path, output_path, text_input, duration)
+                st.success("✅ Video ready!")
+                st.video(output_path)
+                with open(output_path, "rb") as f:
+                    st.download_button("⬇️ Download video", f, file_name="output_video.mp4")
+            except Exception as e:
+                st.error(f"❌ Processing failed: {e}")
