@@ -64,7 +64,7 @@ def generate_typewriter_clips(
             y += bbox[3] - bbox[1]
 
         frame = np.array(img)
-        clip = ImageClip(frame, ismask=False).resize(size).set_duration(char_duration)
+        clip = ImageClip(frame, ismask=False).resize(size, resample='lanczos').set_duration(char_duration)
         clips.append(clip)
 
     return clips
