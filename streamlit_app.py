@@ -29,13 +29,21 @@ def generate_typewriter_clips(text, duration, fps=24, font_size=60, size=(640, 4
 
     return clips
 
-def overlay_text_on_video(input_path, output_path, text, duration):
+def overlay_text_on_video(input_path, output_path, text, animation_duration):
     video = VideoFileClip(input_path)
-    text_clips = generate_typewriter_clips(text, duration)
+    # Generate text clips with animation_duration matching user input
+    text_clips = generate_typewriter_clips(text, animation_duration)
+    
     from moviepy.editor import concatenate_videoclips
-    text_anim = concatenate_videoclips(text_clips).set_position('center').set_start(0)
-    final = CompositeVideoClip([video, text_anim.set_duration(video.duration)])
+    # Concatenate text clips (sum duration = animation_duration)
+    text_anim = concatenate_videoclips(text_clips)
+
+    # **Make text animation duration equal to video duration by setting final duration**
+    text_anim = text_anim.set_duration(video.duration).set_position('center').set_start(0)
+    
+    final = CompositeVideoClip([video, text_anim])
     final.write_videofile(output_path, codec='libx264', fps=video.fps)
+
 
 st.title("📝 Typewriter Text on Video (No TextClip)")
 
