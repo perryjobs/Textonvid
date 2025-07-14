@@ -5,7 +5,7 @@ import tempfile
 import numpy as np
 import os
 
-def generate_typewriter_clips(text, duration, fps=24, font_size=60, size=(640, 480), color='white', bg_color='black'):
+def generate_typewriter_clips(text, duration, fps=24, font_size=60, size=(640, 480), color='white'):
     num_chars = len(text)
     char_duration = duration / max(1, num_chars)
     clips = []
@@ -16,15 +16,16 @@ def generate_typewriter_clips(text, duration, fps=24, font_size=60, size=(640, 4
         font = ImageFont.load_default()
 
     for i in range(1, num_chars + 1):
-        img = Image.new('RGBA', size, (0, 0, 0, 0,))
+        # Transparent RGBA image
+        img = Image.new('RGBA', size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         bbox = draw.textbbox((0, 0), text[:i], font=font)
         w = bbox[2] - bbox[0]
         h = bbox[3] - bbox[1]
-        draw.text(((size[0]-w)//2, (size[1]-h)//2), text[:i], font=font, fill=color)
+        draw.text(((size[0] - w) // 2, (size[1] - h) // 2), text[:i], font=font, fill=color)
 
         frame = np.array(img)
-        clip = ImageClip(frame).set_duration(char_duration)
+        clip = ImageClip(frame, ismask=False).set_duration(char_duration)
         clips.append(clip)
 
     return clips
