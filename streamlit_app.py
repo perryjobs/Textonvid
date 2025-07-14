@@ -6,9 +6,14 @@ import numpy as np
 import os
 import textwrap
 
-def generate_typewriter_clips(text, duration, size=(640, 480), color='white', fps=24, font_path="DejaVuSans-Bold.ttf"):
+MAX_CHARS = 400  # limit to avoid memory overload
+SKIP_FRAME_STEP = 2  # draw every 2nd frame to reduce load
+
+def generate_typewriter_clips(
+    text, duration, size=(640, 480), color='white', font_path="DejaVuSans-Bold.ttf"
+):
     width, height = size
-    font_size = int(width * 0.05)  # Scale font by width (5%)
+    font_size = int(width * 0.05)
 
     try:
         font = ImageFont.truetype(font_path, font_size)
@@ -21,11 +26,13 @@ def generate_typewriter_clips(text, duration, size=(640, 480), color='white', fp
 
     wrapped_lines = textwrap.wrap(text, width=max_chars_per_line)
     full_text = "\n".join(wrapped_lines)
+    full_text = full_text[:MAX_CHARS]  # prevent memory crash
+
     num_chars = len(full_text)
-    char_duration = duration / max(1, num_chars)
+    char_duration = duration / max(1, num_chars // SKIP_FRAME_STEP)
     clips = []
 
-    for i in range(1, num_chars + 1):
+    for i in range(1, num_chars + 1, SKIP_FRAME_STEP):
         img = Image.new('RGBA', size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
@@ -40,7 +47,6 @@ def generate_typewriter_clips(text, duration, size=(640, 480), color='white', fp
             if not line.strip():
                 y += font_size // 2
                 continue
-
             bbox = draw.textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
             x = (width - line_width) // 2
@@ -65,27 +71,28 @@ def generate_typewriter_clips(text, duration, size=(640, 480), color='white', fp
 def overlay_text_on_video(input_path, output_path, text, animation_duration):
     try:
         video = VideoFileClip(input_path)
+        video_size = video.size
+        text_clips = generate_typewriter_clips(text, animation_duration, size=video_size)
+        text_anim = concatenate_videoclips(text_clips)
+
+        # Extend final frame to match video duration
+        if video.duration > animation_duration:
+            last = text_clips[-1].set_duration(video.duration - animation_duration)
+            text_anim = concatenate_videoclips([text_anim, last])
+
+        text_anim = text_anim.set_position('center').set_start(0)
+        final = CompositeVideoClip([video, text_anim])
+        final.write_videofile(output_path, codec='libx264', fps=video.fps)
+
     except Exception as e:
-        raise RuntimeError(f"Failed to load video: {e}")
-
-    video_size = video.size
-    text_clips = generate_typewriter_clips(text, animation_duration, size=video_size)
-    text_anim = concatenate_videoclips(text_clips)
-
-    if video.duration > animation_duration:
-        hold = text_clips[-1].set_duration(video.duration - animation_duration)
-        text_anim = concatenate_videoclips([text_anim, hold])
-
-    text_anim = text_anim.set_position("center").set_start(0)
-    final = CompositeVideoClip([video, text_anim])
-    final.write_videofile(output_path, codec='libx264', fps=video.fps)
+        raise RuntimeError(f"Video generation failed: {e}")
 
 # --- Streamlit UI ---
-st.title("📝 Typewriter Text on Video (All Resolutions + Outline)")
+st.title("📝 Typewriter Text on Video (Portrait + Landscape)")
 
 uploaded_file = st.file_uploader("Upload a video (.mp4)", type=["mp4"])
-text_input = st.text_area("Enter text for animation")
-duration = st.slider("Text animation duration (seconds)", 1, 15, 5)
+text_input = st.text_area("Enter text for animation (max 400 characters)")
+duration = st.slider("Text animation duration (seconds)", 1, 20, 5)
 
 if uploaded_file and text_input:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_input:
@@ -102,9 +109,9 @@ if uploaded_file and text_input:
         with st.spinner("🔄 Generating video..."):
             try:
                 overlay_text_on_video(input_path, output_path, text_input, duration)
-                st.success("✅ Video ready!")
+                st.success("✅ Video generated successfully!")
                 st.video(output_path)
                 with open(output_path, "rb") as f:
-                    st.download_button("⬇️ Download video", f, file_name="output_video.mp4")
+                    st.download_button("⬇️ Download Video", f, file_name="output_video.mp4")
             except Exception as e:
-                st.error(f"❌ Processing failed: {e}")
+                st.error(f"❌ Error: {e}")
