@@ -6,6 +6,11 @@ import numpy as np
 import os
 import textwrap
 
+# 🩹 Patch for Pillow 10+ to avoid 'ANTIALIAS' crash
+from PIL import Image
+if not hasattr(Image, 'ANTIALIAS'):
+    Image.ANTIALIAS = Image.Resampling.LANCZOS
+
 MAX_CHARS = 400
 SKIP_FRAME_STEP = 2
 OVERLAY_SCALE = 0.5  # scale down overlay for performance
