@@ -16,7 +16,7 @@ def generate_typewriter_clips(text, duration, fps=24, font_size=60, size=(640, 4
         font = ImageFont.load_default()
 
     for i in range(1, num_chars + 1):
-        img = Image.new('RGB', size, color=bg_color)
+        img = Image.new('RGBA', size, (0, 0, 0, 0,))
         draw = ImageDraw.Draw(img)
         bbox = draw.textbbox((0, 0), text[:i], font=font)
         w = bbox[2] - bbox[0]
