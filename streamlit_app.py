@@ -10,12 +10,17 @@ def generate_typewriter_clips(
     text,
     duration,
     size=(640, 480),
-    font_size=60,
+    font_size=None,
     color='white',
     fps=24,
     font_path="DejaVuSans-Bold.ttf"
 ):
     width, height = size
+
+    # Auto-adjust font size for resolution
+    if font_size is None:
+        font_size = int(width * 0.05)  # e.g., 5% of width
+
     num_chars = len(text)
     char_duration = duration / max(1, num_chars)
     clips = []
@@ -25,12 +30,12 @@ def generate_typewriter_clips(
     except:
         font = ImageFont.load_default()
 
-    # Calculate wrap width with horizontal margins
-    usable_width = width - 20  # Add padding (10px left and right)
-    avg_char_width = font_size // 1.7
-    max_chars_per_line = int(usable_width // avg_char_width)
+    # Text wrapping with dynamic width and margin
+    usable_width = max(width - 40, 100)  # pad more for portrait
+    avg_char_width = max(font_size // 1.7, 1)
+    max_chars_per_line = max(1, int(usable_width // avg_char_width))
 
-    # Wrap text to fit video width
+    # Wrap text
     wrapped_lines = textwrap.wrap(text, width=max_chars_per_line)
     full_text = "\n".join(wrapped_lines)
 
@@ -40,17 +45,21 @@ def generate_typewriter_clips(
 
         current_text = full_text[:i]
         lines = current_text.split("\n")
-        total_text_height = sum([font.getbbox(line)[3] for line in lines if line.strip()])
+        total_text_height = sum([
+            font.getbbox(line)[3] if line.strip() else font_size // 2 for line in lines
+        ])
 
         y = (height - total_text_height) // 2
         for line in lines:
-            if line.strip() == "":
+            if not line.strip():
+                y += font_size // 2
                 continue
+
             bbox = draw.textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
             x = (width - line_width) // 2
 
-            # Draw outline
+            # Outline
             outline_color = "black"
             outline_thickness = 2
             for dx in [-outline_thickness, 0, outline_thickness]:
@@ -59,7 +68,6 @@ def generate_typewriter_clips(
                         continue
                     draw.text((x + dx, y + dy), line, font=font, fill=outline_color)
 
-            # Draw main text
             draw.text((x, y), line, font=font, fill=color)
             y += bbox[3] - bbox[1]
 
