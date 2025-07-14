@@ -42,6 +42,19 @@ def generate_typewriter_clips(text, duration, size=(640, 480), font_size=60, col
             bbox = draw.textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
             x = (width - line_width) // 2
+            outline_color = "black"
+            outline_thickness = 2
+
+# Draw outline
+for dx in [-outline_thickness, 0, outline_thickness]:
+    for dy in [-outline_thickness, 0, outline_thickness]:
+        if dx == 0 and dy == 0:
+            continue
+        draw.text((x + dx, y + dy), line, font=font, fill=outline_color)
+
+# Draw main text
+draw.text((x, y), line, font=font, fill=color)
+
             draw.text((x, y), line, font=font, fill=color)
             y += bbox[3] - bbox[1]
 
