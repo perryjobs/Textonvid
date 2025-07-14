@@ -18,8 +18,8 @@ def generate_typewriter_clips(text, duration, size=(640, 480), font_size=60, col
         font = ImageFont.load_default()
 
     # Calculate wrap width with margins
-    usable_width = width - 50  # Add small horizontal padding
-    avg_char_width = font_size // 6
+    usable_width = width - 10  # Add small horizontal padding
+    avg_char_width = font_size // 1
     max_chars_per_line = usable_width // avg_char_width
 
     # Wrap text
