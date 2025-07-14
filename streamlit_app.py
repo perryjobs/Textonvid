@@ -6,14 +6,15 @@ import numpy as np
 import os
 import textwrap
 
-# 🩹 Patch for Pillow 10+ to avoid 'ANTIALIAS' crash
-from PIL import Image
-if not hasattr(Image, 'ANTIALIAS'):
-    Image.ANTIALIAS = Image.Resampling.LANCZOS
+# 🩹 Patch Pillow for compatibility with moviepy (for Pillow >= 10)
+from PIL import Image as PILImage
+if not hasattr(PILImage, 'ANTIALIAS'):
+    PILImage.ANTIALIAS = PILImage.Resampling.LANCZOS
 
+# 🔧 Settings
 MAX_CHARS = 400
-SKIP_FRAME_STEP = 2
-OVERLAY_SCALE = 0.5  # scale down overlay for performance
+FRAME_SKIP = 2
+OVERLAY_SCALE = 0.5  # reduce overlay rendering resolution
 
 def generate_typewriter_clips(
     text, duration, size=(640, 480), color='white', font_path="DejaVuSans-Bold.ttf"
@@ -35,10 +36,10 @@ def generate_typewriter_clips(
     full_text = "\n".join(wrapped_lines)[:MAX_CHARS]
 
     num_chars = len(full_text)
-    char_duration = duration / max(1, num_chars // SKIP_FRAME_STEP)
+    char_duration = duration / max(1, num_chars // FRAME_SKIP)
     clips = []
 
-    for i in range(1, num_chars + 1, SKIP_FRAME_STEP):
+    for i in range(1, num_chars + 1, FRAME_SKIP):
         img = Image.new('RGBA', scaled_size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
@@ -57,6 +58,7 @@ def generate_typewriter_clips(
             line_width = bbox[2] - bbox[0]
             x = (scaled_size[0] - line_width) // 2
 
+            # Outline
             outline_color = "black"
             outline_thickness = 2
             for dx in [-outline_thickness, 0, outline_thickness]:
@@ -93,7 +95,7 @@ def overlay_text_on_video(input_path, output_path, text, animation_duration):
         raise RuntimeError(f"Video generation failed: {e}")
 
 # --- Streamlit UI ---
-st.title("📝 Typewriter Text on Video (Optimized for Mobile & Portrait)")
+st.title("📝 Typewriter Text on Video (Crash-Proof, Optimized)")
 
 uploaded_file = st.file_uploader("Upload a video (.mp4)", type=["mp4"])
 text_input = st.text_area("Enter text for animation (max 400 characters)")
