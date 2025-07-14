@@ -18,7 +18,9 @@ def generate_typewriter_clips(text, duration, fps=24, font_size=60, size=(640, 4
     for i in range(1, num_chars + 1):
         img = Image.new('RGB', size, color=bg_color)
         draw = ImageDraw.Draw(img)
-        w, h = draw.textsize(text[:i], font=font)
+        bbox = draw.textbbox((0, 0), text[:i], font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
         draw.text(((size[0]-w)//2, (size[1]-h)//2), text[:i], font=font, fill=color)
 
         frame = np.array(img)
