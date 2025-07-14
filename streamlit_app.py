@@ -6,34 +6,35 @@ import numpy as np
 import os
 import textwrap
 
-MAX_CHARS = 400  # limit to avoid memory overload
-SKIP_FRAME_STEP = 2  # draw every 2nd frame to reduce load
+MAX_CHARS = 400
+SKIP_FRAME_STEP = 2
+OVERLAY_SCALE = 0.5  # scale down overlay for performance
 
 def generate_typewriter_clips(
     text, duration, size=(640, 480), color='white', font_path="DejaVuSans-Bold.ttf"
 ):
     width, height = size
-    font_size = int(width * 0.05)
+    scaled_size = (int(width * OVERLAY_SCALE), int(height * OVERLAY_SCALE))
+    font_size = int(scaled_size[0] * 0.05)
 
     try:
         font = ImageFont.truetype(font_path, font_size)
     except:
         font = ImageFont.load_default()
 
-    usable_width = max(width - 40, 100)
+    usable_width = max(scaled_size[0] - 40, 100)
     avg_char_width = max(font_size // 2, 1)
     max_chars_per_line = max(1, usable_width // avg_char_width)
 
     wrapped_lines = textwrap.wrap(text, width=max_chars_per_line)
-    full_text = "\n".join(wrapped_lines)
-    full_text = full_text[:MAX_CHARS]  # prevent memory crash
+    full_text = "\n".join(wrapped_lines)[:MAX_CHARS]
 
     num_chars = len(full_text)
     char_duration = duration / max(1, num_chars // SKIP_FRAME_STEP)
     clips = []
 
     for i in range(1, num_chars + 1, SKIP_FRAME_STEP):
-        img = Image.new('RGBA', size, (0, 0, 0, 0))
+        img = Image.new('RGBA', scaled_size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         current_text = full_text[:i]
@@ -41,7 +42,7 @@ def generate_typewriter_clips(
         total_text_height = sum([
             font.getbbox(line)[3] if line.strip() else font_size // 2 for line in lines
         ])
-        y = (height - total_text_height) // 2
+        y = (scaled_size[1] - total_text_height) // 2
 
         for line in lines:
             if not line.strip():
@@ -49,7 +50,7 @@ def generate_typewriter_clips(
                 continue
             bbox = draw.textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
-            x = (width - line_width) // 2
+            x = (scaled_size[0] - line_width) // 2
 
             outline_color = "black"
             outline_thickness = 2
@@ -63,7 +64,7 @@ def generate_typewriter_clips(
             y += bbox[3] - bbox[1]
 
         frame = np.array(img)
-        clip = ImageClip(frame, ismask=False).set_duration(char_duration)
+        clip = ImageClip(frame, ismask=False).resize(size).set_duration(char_duration)
         clips.append(clip)
 
     return clips
@@ -75,7 +76,6 @@ def overlay_text_on_video(input_path, output_path, text, animation_duration):
         text_clips = generate_typewriter_clips(text, animation_duration, size=video_size)
         text_anim = concatenate_videoclips(text_clips)
 
-        # Extend final frame to match video duration
         if video.duration > animation_duration:
             last = text_clips[-1].set_duration(video.duration - animation_duration)
             text_anim = concatenate_videoclips([text_anim, last])
@@ -88,7 +88,7 @@ def overlay_text_on_video(input_path, output_path, text, animation_duration):
         raise RuntimeError(f"Video generation failed: {e}")
 
 # --- Streamlit UI ---
-st.title("📝 Typewriter Text on Video (Portrait + Landscape)")
+st.title("📝 Typewriter Text on Video (Optimized for Mobile & Portrait)")
 
 uploaded_file = st.file_uploader("Upload a video (.mp4)", type=["mp4"])
 text_input = st.text_area("Enter text for animation (max 400 characters)")
