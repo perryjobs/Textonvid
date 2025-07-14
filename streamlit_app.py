@@ -6,7 +6,15 @@ import numpy as np
 import os
 import textwrap
 
-def generate_typewriter_clips(text, duration, size=(640, 480), font_size=60, color='white', fps=24, font_path="DejaVuSans-Bold.ttf"):
+def generate_typewriter_clips(
+    text,
+    duration,
+    size=(640, 480),
+    font_size=60,
+    color='white',
+    fps=24,
+    font_path="DejaVuSans-Bold.ttf"
+):
     width, height = size
     num_chars = len(text)
     char_duration = duration / max(1, num_chars)
@@ -17,15 +25,14 @@ def generate_typewriter_clips(text, duration, size=(640, 480), font_size=60, col
     except:
         font = ImageFont.load_default()
 
-    # Calculate wrap width with margins
-    usable_width = width - 20  # Add small horizontal padding
+    # Calculate wrap width with horizontal margins
+    usable_width = width - 20  # Add padding (10px left and right)
     avg_char_width = font_size // 1.7
-    max_chars_per_line = usable_width // avg_char_width
+    max_chars_per_line = int(usable_width // avg_char_width)
 
-    # Wrap text
+    # Wrap text to fit video width
     wrapped_lines = textwrap.wrap(text, width=max_chars_per_line)
     full_text = "\n".join(wrapped_lines)
-
 
     for i in range(1, len(full_text) + 1):
         img = Image.new('RGBA', size, (0, 0, 0, 0))
@@ -33,7 +40,7 @@ def generate_typewriter_clips(text, duration, size=(640, 480), font_size=60, col
 
         current_text = full_text[:i]
         lines = current_text.split("\n")
-        total_text_height = sum([font.getbbox(line)[3] for line in lines])
+        total_text_height = sum([font.getbbox(line)[3] for line in lines if line.strip()])
 
         y = (height - total_text_height) // 2
         for line in lines:
@@ -42,19 +49,17 @@ def generate_typewriter_clips(text, duration, size=(640, 480), font_size=60, col
             bbox = draw.textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
             x = (width - line_width) // 2
+
+            # Draw outline
             outline_color = "black"
             outline_thickness = 2
+            for dx in [-outline_thickness, 0, outline_thickness]:
+                for dy in [-outline_thickness, 0, outline_thickness]:
+                    if dx == 0 and dy == 0:
+                        continue
+                    draw.text((x + dx, y + dy), line, font=font, fill=outline_color)
 
-# Draw outline
-for dx in [-outline_thickness, 0, outline_thickness]:
-    for dy in [-outline_thickness, 0, outline_thickness]:
-        if dx == 0 and dy == 0:
-            continue
-        draw.text((x + dx, y + dy), line, font=font, fill=outline_color)
-
-# Draw main text
-draw.text((x, y), line, font=font, fill=color)
-
+            # Draw main text
             draw.text((x, y), line, font=font, fill=color)
             y += bbox[3] - bbox[1]
 
@@ -74,6 +79,7 @@ def overlay_text_on_video(input_path, output_path, text, animation_duration):
     text_clips = generate_typewriter_clips(text, animation_duration, size=video_size)
     text_anim = concatenate_videoclips(text_clips)
 
+    # If video is longer than animation, hold the final frame
     if video.duration > animation_duration:
         last_frame = text_clips[-1].set_duration(video.duration - animation_duration)
         text_anim = concatenate_videoclips([text_anim, last_frame])
@@ -83,7 +89,7 @@ def overlay_text_on_video(input_path, output_path, text, animation_duration):
     final.write_videofile(output_path, codec='libx264', fps=video.fps)
 
 # --- Streamlit UI ---
-st.title("📝 Typewriter Text on Video (Transparent & Responsive)")
+st.title("📝 Typewriter Text on Video (Transparent + Outline)")
 
 uploaded_file = st.file_uploader("Upload a video (.mp4)", type=["mp4"])
 text_input = st.text_area("Enter text for animation")
