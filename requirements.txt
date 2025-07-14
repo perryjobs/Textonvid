@@ -2,4 +2,4 @@ streamlit
 moviepy==1.0.3
 numpy
 imageio-ffmpeg
-pillow==10
+pillow
