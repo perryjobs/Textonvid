@@ -6,59 +6,51 @@ import numpy as np
 import os
 import textwrap
 
-# 🩹 Patch Pillow for compatibility with moviepy (for Pillow >= 10)
-from PIL import Image as PILImage
-if not hasattr(PILImage, 'ANTIALIAS'):
-    PILImage.ANTIALIAS = PILImage.Resampling.LANCZOS
-
-# 🔧 Settings
-MAX_CHARS = 400
-FRAME_SKIP = 2
-OVERLAY_SCALE = 0.5  # reduce overlay rendering resolution
-
 def generate_typewriter_clips(
-    text, duration, size=(640, 480), color='white', font_path="DejaVuSans-Bold.ttf"
+    text,
+    duration,
+    size=(640, 480),
+    font_size=60,
+    color='white',
+    fps=24,
+    font_path="DejaVuSans-Bold.ttf"
 ):
     width, height = size
-    scaled_size = (int(width * OVERLAY_SCALE), int(height * OVERLAY_SCALE))
-    font_size = int(scaled_size[0] * 0.05)
+    num_chars = len(text)
+    char_duration = duration / max(1, num_chars)
+    clips = []
 
     try:
         font = ImageFont.truetype(font_path, font_size)
     except:
         font = ImageFont.load_default()
 
-    usable_width = max(scaled_size[0] - 40, 100)
-    avg_char_width = max(font_size // 2, 1)
-    max_chars_per_line = max(1, usable_width // avg_char_width)
+    # Calculate wrap width with horizontal margins
+    usable_width = width - 20  # Add padding (10px left and right)
+    avg_char_width = font_size // 1.7
+    max_chars_per_line = int(usable_width // avg_char_width)
 
+    # Wrap text to fit video width
     wrapped_lines = textwrap.wrap(text, width=max_chars_per_line)
-    full_text = "\n".join(wrapped_lines)[:MAX_CHARS]
+    full_text = "\n".join(wrapped_lines)
 
-    num_chars = len(full_text)
-    char_duration = duration / max(1, num_chars // FRAME_SKIP)
-    clips = []
-
-    for i in range(1, num_chars + 1, FRAME_SKIP):
-        img = Image.new('RGBA', scaled_size, (0, 0, 0, 0))
+    for i in range(1, len(full_text) + 1):
+        img = Image.new('RGBA', size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
 
         current_text = full_text[:i]
         lines = current_text.split("\n")
-        total_text_height = sum([
-            font.getbbox(line)[3] if line.strip() else font_size // 2 for line in lines
-        ])
-        y = (scaled_size[1] - total_text_height) // 2
+        total_text_height = sum([font.getbbox(line)[3] for line in lines if line.strip()])
 
+        y = (height - total_text_height) // 2
         for line in lines:
-            if not line.strip():
-                y += font_size // 2
+            if line.strip() == "":
                 continue
             bbox = draw.textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
-            x = (scaled_size[0] - line_width) // 2
+            x = (width - line_width) // 2
 
-            # Outline
+            # Draw outline
             outline_color = "black"
             outline_thickness = 2
             for dx in [-outline_thickness, 0, outline_thickness]:
@@ -67,11 +59,12 @@ def generate_typewriter_clips(
                         continue
                     draw.text((x + dx, y + dy), line, font=font, fill=outline_color)
 
+            # Draw main text
             draw.text((x, y), line, font=font, fill=color)
             y += bbox[3] - bbox[1]
 
         frame = np.array(img)
-        clip = ImageClip(frame, ismask=False).resize(newsize=size).set_duration(char_duration)
+        clip = ImageClip(frame, ismask=False).set_duration(char_duration)
         clips.append(clip)
 
     return clips
@@ -79,27 +72,28 @@ def generate_typewriter_clips(
 def overlay_text_on_video(input_path, output_path, text, animation_duration):
     try:
         video = VideoFileClip(input_path)
-        video_size = video.size
-        text_clips = generate_typewriter_clips(text, animation_duration, size=video_size)
-        text_anim = concatenate_videoclips(text_clips)
-
-        if video.duration > animation_duration:
-            last = text_clips[-1].set_duration(video.duration - animation_duration)
-            text_anim = concatenate_videoclips([text_anim, last])
-
-        text_anim = text_anim.set_position('center').set_start(0)
-        final = CompositeVideoClip([video, text_anim])
-        final.write_videofile(output_path, codec='libx264', fps=video.fps)
-
     except Exception as e:
-        raise RuntimeError(f"Video generation failed: {e}")
+        raise RuntimeError(f"Failed to load video: {e}")
+
+    video_size = video.size
+    text_clips = generate_typewriter_clips(text, animation_duration, size=video_size)
+    text_anim = concatenate_videoclips(text_clips)
+
+    # If video is longer than animation, hold the final frame
+    if video.duration > animation_duration:
+        last_frame = text_clips[-1].set_duration(video.duration - animation_duration)
+        text_anim = concatenate_videoclips([text_anim, last_frame])
+
+    text_anim = text_anim.set_position('center').set_start(0)
+    final = CompositeVideoClip([video, text_anim])
+    final.write_videofile(output_path, codec='libx264', fps=video.fps)
 
 # --- Streamlit UI ---
-st.title("📝 Typewriter Text on Video (Crash-Proof, Optimized)")
+st.title("📝 Typewriter Text on Video (Transparent + Outline)")
 
 uploaded_file = st.file_uploader("Upload a video (.mp4)", type=["mp4"])
-text_input = st.text_area("Enter text for animation (max 400 characters)")
-duration = st.slider("Text animation duration (seconds)", 1, 20, 5)
+text_input = st.text_area("Enter text for animation")
+duration = st.slider("Text animation duration (seconds)", 1, 10, 5)
 
 if uploaded_file and text_input:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_input:
@@ -116,9 +110,9 @@ if uploaded_file and text_input:
         with st.spinner("🔄 Generating video..."):
             try:
                 overlay_text_on_video(input_path, output_path, text_input, duration)
-                st.success("✅ Video generated successfully!")
+                st.success("✅ Video ready!")
                 st.video(output_path)
                 with open(output_path, "rb") as f:
-                    st.download_button("⬇️ Download Video", f, file_name="output_video.mp4")
+                    st.download_button("⬇️ Download video", f, file_name="output_video.mp4")
             except Exception as e:
-                st.error(f"❌ Error: {e}")
+                st.error(f"❌ Processing failed: {e}")
