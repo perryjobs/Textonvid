@@ -89,7 +89,7 @@ def overlay_text_on_video(input_path, output_path, text, animation_duration):
     final.write_videofile(output_path, codec='libx264', fps=video.fps)
 
 # --- Streamlit UI ---
-st.title("📝 Typewriter Text on Video (Transparent + Outline)")
+st.title("📝 Typewriter Text on Video")
 
 uploaded_file = st.file_uploader("Upload a video (.mp4)", type=["mp4"])
 text_input = st.text_area("Enter text for animation")
